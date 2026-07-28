@@ -1,3 +1,7 @@
-# omni_consultant
+# Omni Consultant
 
-An AI assistant that progressively replaces my transportation air quality consulting workflow.
+An AI assistant that progressively replaces professional consulting workflows.
+
+Current milestone:
+- Learn OpenAI API
+- Build one working feature at a time
