@@ -1,4 +1,14 @@
+import os
+
+from dotenv import load_dotenv
 from openai import OpenAI
+
+load_dotenv()
+
+if not os.getenv("OPENAI_API_KEY"):
+    raise SystemExit(
+        "OPENAI_API_KEY was not found. Check your local .env file."
+    )
 
 client = OpenAI()
 
