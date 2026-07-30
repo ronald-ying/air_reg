@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 
 from dotenv import load_dotenv
 from openai import OpenAI
@@ -9,6 +10,13 @@ if not os.getenv("OPENAI_API_KEY"):
     raise SystemExit(
         "OPENAI_API_KEY was not found. Check your local .env file."
     )
+
+instructions_path = Path(__file__).with_name("instructions.txt")
+
+if not instructions_path.exists():
+    raise SystemExit("instructions.txt was not found.")
+
+instructions = instructions_path.read_text(encoding="utf-8").strip()
 
 client = OpenAI()
 
