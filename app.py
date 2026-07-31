@@ -30,7 +30,7 @@ instructions = INSTRUCTIONS_PATH.read_text(
 ).strip()
 
 source_sections = []
-extracted_page_count = 0
+readable_pages = 0
 
 for pdf_file in pdf_files:
     reader = PdfReader(pdf_file)
@@ -43,24 +43,21 @@ for pdf_file in pdf_files:
 
         source_sections.append(
             f"""
-=== SOURCE FILE: {pdf_file.name} | PDF PAGE: {page_number} ===
+=== SOURCE: {pdf_file.name} | PDF PAGE {page_number} ===
 {page_text}
 """.strip()
         )
 
-        extracted_page_count += 1
+        readable_pages += 1
 
 source_text = "\n\n".join(source_sections)
 
 if not source_text:
-    raise SystemExit(
-        "The PDFs were found, but no readable text was extracted."
-    )
+    raise SystemExit("No readable text was extracted from the PDFs.")
 
 print(
-    f"Loaded {len(pdf_files)} PDFs, "
-    f"{extracted_page_count} readable pages, "
-    f"and {len(source_text):,} characters."
+    f"Loaded {len(pdf_files)} PDFs and "
+    f"{readable_pages} readable pages."
 )
 
 question = input(
@@ -71,21 +68,19 @@ if not question:
     raise SystemExit("No question entered.")
 
 prompt = f"""
-Answer the user's question using only the FHWA source documents below.
+Answer the question using only the FHWA source documents provided below.
 
-Source rules:
-1. Cite every substantive conclusion as:
-   [filename, PDF page number]
-2. Do not invent FHWA requirements, thresholds, project facts, or conclusions.
-3. Clearly state when the documents do not support an answer.
-4. Distinguish FHWA guidance from appendix sample language.
+Requirements:
+1. Cite each substantive conclusion as [filename, PDF page number].
+2. Do not invent FHWA requirements, thresholds, project facts, or results.
+3. State clearly when the documents do not support a conclusion.
+4. Distinguish FHWA guidance from sample appendix language.
 5. Distinguish source statements from professional inference.
-6. Identify conflicting or superseded language if documents differ.
-7. PDF page numbers refer to the electronic PDF page, not necessarily
-   the printed page number shown inside the document.
+6. Identify any material differences among the documents.
+7. Use the electronic PDF page numbers shown in the source markers.
 
-FHWA SOURCE CORPUS
-==================
+FHWA SOURCE DOCUMENTS
+=====================
 {source_text}
 
 USER QUESTION
