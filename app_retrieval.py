@@ -68,3 +68,30 @@ response = client.responses.create(
 
 print("\nOmni Consultant:")
 print(response.output_text)
+
+cited_files = []
+
+for output_item in response.output:
+    if output_item.type != "message":
+        continue
+
+    for content_item in output_item.content:
+        if content_item.type != "output_text":
+            continue
+
+        for annotation in content_item.annotations:
+            if annotation.type != "file_citation":
+                continue
+
+            if annotation.filename not in cited_files:
+                cited_files.append(annotation.filename)
+
+if cited_files:
+    print("\nSources cited by the response:")
+
+    for filename in cited_files:
+        print(f"- {filename}")
+else:
+    print(
+        "\nWARNING: The response did not return any file citations."
+    )
