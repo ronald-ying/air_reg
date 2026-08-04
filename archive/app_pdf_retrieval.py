@@ -1,5 +1,4 @@
 import os
-import re
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -12,17 +11,16 @@ INSTRUCTIONS_PATH = BASE_DIR / "instructions.txt"
 load_dotenv(BASE_DIR / ".env")
 
 api_key = os.getenv("OPENAI_API_KEY")
-page_vector_store_id = os.getenv("OPENAI_PAGE_VECTOR_STORE_ID")
+vector_store_id = os.getenv("OPENAI_VECTOR_STORE_ID")
 
 if not api_key:
     raise SystemExit(
         "OPENAI_API_KEY was not found. Check your local .env file."
     )
 
-if not page_vector_store_id:
+if not vector_store_id:
     raise SystemExit(
-        "OPENAI_PAGE_VECTOR_STORE_ID was not found. "
-        "Check your local .env file."
+        "OPENAI_VECTOR_STORE_ID was not found. Check your local .env file."
     )
 
 if not INSTRUCTIONS_PATH.exists():
@@ -37,15 +35,12 @@ retrieval_instructions = f"""
 
 Additional source-grounding rules:
 
-1. Use only information retrieved from the FHWA MSAT page-level vector store.
-2. Each retrieved text file represents one electronic PDF page.
-3. Each page begins with the original PDF filename and electronic page number.
-4. Cite substantive conclusions as:
-   [original PDF filename, electronic PDF page number]
-5. Do not use outside knowledge to fill gaps.
-6. Distinguish FHWA guidance from appendix prototype language.
-7. State clearly when the retrieved material does not support an answer.
-8. Do not invent project-specific traffic, emissions, modeling, or design data.
+1. Use only information retrieved from the FHWA MSAT vector store.
+2. Do not rely on outside knowledge to fill gaps.
+3. Cite the supporting FHWA filename for each substantive conclusion.
+4. Distinguish FHWA guidance from appendix prototype language.
+5. State clearly when the retrieved documents do not support an answer.
+6. Do not invent project-specific traffic, emissions, modeling, or design data.
 """
 
 question = input(
@@ -64,8 +59,8 @@ response = client.responses.create(
     tools=[
         {
             "type": "file_search",
-            "vector_store_ids": [page_vector_store_id],
-            "max_num_results": 12,
+            "vector_store_ids": [vector_store_id],
+            "max_num_results": 10,
         }
     ],
     include=["file_search_call.results"],
@@ -74,7 +69,7 @@ response = client.responses.create(
 print("\nOmni Consultant:")
 print(response.output_text)
 
-cited_page_files = []
+cited_files = []
 
 for output_item in response.output:
     if output_item.type != "message":
@@ -88,29 +83,14 @@ for output_item in response.output:
             if annotation.type != "file_citation":
                 continue
 
-            if annotation.filename not in cited_page_files:
-                cited_page_files.append(annotation.filename)
+            if annotation.filename not in cited_files:
+                cited_files.append(annotation.filename)
 
-if cited_page_files:
-    print("\nRetrieved source pages:")
+if cited_files:
+    print("\nSources cited by the response:")
 
-    page_pattern = re.compile(
-        r"^(?P<document>.+)__page_(?P<page>\d+)\.txt$"
-    )
-
-    for filename in cited_page_files:
-        match = page_pattern.match(filename)
-
-        if match:
-            document_name = f"{match.group('document')}.pdf"
-            page_number = int(match.group("page"))
-
-            print(
-                f"- {document_name}, "
-                f"electronic PDF page {page_number}"
-            )
-        else:
-            print(f"- {filename}")
+    for filename in cited_files:
+        print(f"- {filename}")
 else:
     print(
         "\nWARNING: The response did not return any file citations."
