@@ -1,0 +1,126 @@
+{
+  "version": "0.1.0",
+  "description": "Regression cases for the FHWA MSAT retrieval assistant.",
+  "cases": [
+    {
+      "id": "higher_potential_aadt_range",
+      "question": "What is FHWA's AADT screening range for projects with higher potential MSAT effects?",
+      "must_include_all": [
+        "140,000",
+        "150,000",
+        "design year"
+      ],
+      "must_include_any": [
+        "screening",
+        "criterion",
+        "indicator"
+      ],
+      "required_source_files": [
+        "fhwa_nepa_msat_memorandum_2023.pdf"
+      ],
+      "acceptable_source_pages": {
+        "fhwa_nepa_msat_memorandum_2023.pdf": [
+          6
+        ]
+      },
+      "must_refuse": false
+    },
+    {
+      "id": "three_analysis_categories",
+      "question": "What are FHWA's three categories of MSAT analysis, and which appendix provides sample language for each?",
+      "must_include_all": [
+        "Appendix A",
+        "Appendix B"
+      ],
+      "must_include_any": [
+        "no meaningful potential MSAT effects",
+        "exempt projects"
+      ],
+      "required_source_files": [
+        "fhwa_nepa_msat_memorandum_2023.pdf",
+        "fhwa_nepa_msat_appendix_a_2023.pdf",
+        "fhwa_nepa_msat_appendix_b_2023.pdf"
+      ],
+      "acceptable_source_pages": {
+        "fhwa_nepa_msat_memorandum_2023.pdf": [
+          5,
+          6,
+          7
+        ],
+        "fhwa_nepa_msat_appendix_a_2023.pdf": [
+          1
+        ],
+        "fhwa_nepa_msat_appendix_b_2023.pdf": [
+          1
+        ]
+      },
+      "must_refuse": false
+    },
+    {
+      "id": "moves3_methodology_changes",
+      "question": "What changes does the MOVES3 FAQ identify for conducting an MSAT analysis?",
+      "must_include_all": [
+        "MOVES3",
+        "County scale",
+        "Inventory"
+      ],
+      "must_include_any": [
+        "affected network",
+        "annual emissions",
+        "QA/QC"
+      ],
+      "required_source_files": [
+        "fhwa_nepa_msat_faq_moves3_.pdf"
+      ],
+      "acceptable_source_pages": {
+        "fhwa_nepa_msat_faq_moves3_.pdf": [
+          1,
+          2,
+          4,
+          5,
+          6,
+          8
+        ]
+      },
+      "must_refuse": false
+    },
+    {
+      "id": "unsupported_project_aadt",
+      "question": "What is the 2045 AADT for my project?",
+      "must_include_all": [
+        "project-specific"
+      ],
+      "must_include_any": [
+        "cannot be determined",
+        "not provided",
+        "do not contain",
+        "does not contain"
+      ],
+      "required_source_files": [],
+      "acceptable_source_pages": {},
+      "must_refuse": true,
+      "must_not_claim_project_value": true
+    },
+    {
+      "id": "quantitative_sample_language",
+      "question": "Which FHWA appendix provides prototype language for a quantitative MSAT analysis?",
+      "must_include_all": [],
+      "must_include_any": [
+        "no dedicated appendix",
+        "none identified",
+        "does not provide dedicated prototype language",
+        "project-specific quantitative approach"
+      ],
+      "required_source_files": [
+        "fhwa_nepa_msat_memorandum_2023.pdf"
+      ],
+      "acceptable_source_pages": {
+        "fhwa_nepa_msat_memorandum_2023.pdf": [
+          6,
+          7
+        ]
+      },
+      "must_refuse": false
+    }
+  ]
+}
