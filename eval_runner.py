@@ -1,0 +1,233 @@
+import json
+import os
+import re
+import subprocess
+import sys
+from pathlib import Path
+from typing import Any
+
+
+BASE_DIR = Path(__file__).resolve().parent
+APP_PATH = BASE_DIR / "app.py"
+EVAL_CASES_PATH = BASE_DIR / "eval_cases.json"
+
+REFUSAL_PHRASES = (
+    "cannot be determined",
+    "not provided",
+    "do not contain",
+    "does not contain",
+    "insufficient information",
+    "not available",
+    "cannot determine",
+)
+
+PROJECT_VALUE_PATTERNS = (
+    re.compile(
+        r"(?:your|the)\s+project(?:'s)?\s+(?:2045\s+)?"
+        r"aadt\s+(?:is|=|of)\s+[\d,]+",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"2045\s+aadt\s+(?:is|=)\s+[\d,]+",
+        re.IGNORECASE,
+    ),
+)
+
+
+def extract_source_pages(output: str) -> dict[str, set[int]]:
+    """Extract the source-page list printed by app.py."""
+
+    pattern = re.compile(
+        r"^-\s+(?P<filename>.+?\.pdf),\s+"
+        r"electronic PDF page\s+(?P<page>\d+)\s*$",
+        re.IGNORECASE | re.MULTILINE,
+    )
+
+    sources: dict[str, set[int]] = {}
+
+    for match in pattern.finditer(output):
+        filename = match.group("filename")
+        page_number = int(match.group("page"))
+
+        sources.setdefault(filename, set()).add(page_number)
+
+    return sources
+
+
+def run_application(question: str) -> tuple[int, str]:
+    """Run the existing interactive app and supply one question."""
+
+    environment = os.environ.copy()
+
+    # Keep Windows terminal encoding predictable.
+    environment["PYTHONIOENCODING"] = "utf-8"
+
+    completed = subprocess.run(
+        [sys.executable, str(APP_PATH)],
+        input=f"{question}\n",
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        cwd=BASE_DIR,
+        env=environment,
+        timeout=240,
+        check=False,
+    )
+
+    output = completed.stdout
+
+    if completed.stderr:
+        output += f"\nSTDERR:\n{completed.stderr}"
+
+    return completed.returncode, output
+
+
+def evaluate_case(case: dict[str, Any]) -> tuple[bool, list[str], str]:
+    return_code, output = run_application(case["question"])
+    output_lower = output.casefold()
+    failures: list[str] = []
+
+    if return_code != 0:
+        failures.append(
+            f"Application exited with status {return_code}."
+        )
+
+    for required_text in case.get("must_include_all", []):
+        if required_text.casefold() not in output_lower:
+            failures.append(
+                f"Missing required text: {required_text!r}"
+            )
+
+    any_terms = case.get("must_include_any", [])
+
+    if any_terms and not any(
+        term.casefold() in output_lower for term in any_terms
+    ):
+        failures.append(
+            "None of the acceptable terms appeared: "
+            + ", ".join(repr(term) for term in any_terms)
+        )
+
+    cited_sources = extract_source_pages(output)
+
+    for required_file in case.get("required_source_files", []):
+        if required_file not in cited_sources:
+            failures.append(
+                f"Required source was not cited: {required_file}"
+            )
+
+    acceptable_pages = case.get("acceptable_source_pages", {})
+
+    for filename, allowed_pages in acceptable_pages.items():
+        cited_pages = cited_sources.get(filename, set())
+        allowed_page_set = set(allowed_pages)
+
+        if filename in cited_sources and not (
+            cited_pages & allowed_page_set
+        ):
+            failures.append(
+                f"{filename} cited pages {sorted(cited_pages)}, "
+                f"but expected one of {sorted(allowed_page_set)}."
+            )
+
+    if case.get("must_refuse", False):
+        if not any(
+            phrase in output_lower for phrase in REFUSAL_PHRASES
+        ):
+            failures.append(
+                "Expected an explicit unsupported-information refusal."
+            )
+
+    if case.get("must_not_claim_project_value", False):
+        for pattern in PROJECT_VALUE_PATTERNS:
+            match = pattern.search(output)
+
+            if match:
+                failures.append(
+                    "Possible invented project-specific value: "
+                    f"{match.group(0)!r}"
+                )
+                break
+
+    return not failures, failures, output
+
+
+def main() -> int:
+    if not APP_PATH.exists():
+        print(f"ERROR: app.py not found at {APP_PATH}")
+        return 1
+
+    if not EVAL_CASES_PATH.exists():
+        print(
+            f"ERROR: eval_cases.json not found at "
+            f"{EVAL_CASES_PATH}"
+        )
+        return 1
+
+    with EVAL_CASES_PATH.open(encoding="utf-8") as file:
+        evaluation_data = json.load(file)
+
+    cases = evaluation_data["cases"]
+
+    print(
+        f"Running {len(cases)} FHWA MSAT evaluation cases.\n"
+        "Each case makes one live API request.\n"
+    )
+
+    passed_count = 0
+    failed_outputs: list[tuple[str, str]] = []
+
+    for index, case in enumerate(cases, start=1):
+        case_id = case["id"]
+
+        print(f"[{index}/{len(cases)}] {case_id}")
+
+        try:
+            passed, failures, output = evaluate_case(case)
+        except subprocess.TimeoutExpired:
+            print("  FAIL: Request exceeded 240 seconds.\n")
+            failed_outputs.append(
+                (case_id, "Request timed out.")
+            )
+            continue
+        except Exception as error:
+            print(f"  FAIL: Unexpected error: {error}\n")
+            failed_outputs.append(
+                (case_id, str(error))
+            )
+            continue
+
+        if passed:
+            passed_count += 1
+            print("  PASS\n")
+        else:
+            print("  FAIL")
+
+            for failure in failures:
+                print(f"   - {failure}")
+
+            print()
+            failed_outputs.append((case_id, output))
+
+    failed_count = len(cases) - passed_count
+
+    print("=" * 50)
+    print(f"Passed: {passed_count}")
+    print(f"Failed: {failed_count}")
+    print(f"Total:  {len(cases)}")
+
+    if failed_outputs:
+        print("\nFailed-case outputs:")
+
+        for case_id, output in failed_outputs:
+            print("\n" + "-" * 50)
+            print(case_id)
+            print("-" * 50)
+            print(output.strip())
+
+    return 0 if failed_count == 0 else 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
