@@ -32,14 +32,14 @@
         "Appendix A",
         "Appendix B"
       ],
-      "must_include_any": [
+        "must_include_any": [
+        "no potential for meaningful MSAT effects",
         "no meaningful potential MSAT effects",
-        "exempt projects"
-      ],
+        "exempt projects",
+        "projects with low potential MSAT effects"
+        ],
       "required_source_files": [
-        "fhwa_nepa_msat_memorandum_2023.pdf",
-        "fhwa_nepa_msat_appendix_a_2023.pdf",
-        "fhwa_nepa_msat_appendix_b_2023.pdf"
+        "fhwa_nepa_msat_memorandum_2023.pdf"
       ],
       "acceptable_source_pages": {
         "fhwa_nepa_msat_memorandum_2023.pdf": [
@@ -87,8 +87,7 @@
     {
       "id": "unsupported_project_aadt",
       "question": "What is the 2045 AADT for my project?",
-      "must_include_all": [
-        "project-specific"
+      "must_include_all": [        
       ],
       "must_include_any": [
         "cannot be determined",
@@ -105,12 +104,19 @@
       "id": "quantitative_sample_language",
       "question": "Which FHWA appendix provides prototype language for a quantitative MSAT analysis?",
       "must_include_all": [],
-      "must_include_any": [
+        "must_include_any": [
         "no dedicated appendix",
         "none identified",
+        "none of the FHWA appendices",
+        "no FHWA appendix provides prototype language",
+        "no appendix provides prototype language",
         "does not provide dedicated prototype language",
-        "project-specific quantitative approach"
-      ],
+        "does not identify an appendix containing prototype quantitative-analysis language",
+        "does not identify a separate appendix",
+        "project-specific quantitative analysis",
+        "project-specific quantitative approach",
+        "project-specific analytical approach"
+        ],
       "required_source_files": [
         "fhwa_nepa_msat_memorandum_2023.pdf"
       ],

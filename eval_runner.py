@@ -6,6 +6,25 @@ import sys
 from pathlib import Path
 from typing import Any
 
+DASH_TRANSLATION = str.maketrans(
+    {
+        "\u2010": "-",  # hyphen
+        "\u2011": "-",  # non-breaking hyphen
+        "\u2012": "-",  # figure dash
+        "\u2013": "-",  # en dash
+        "\u2014": "-",  # em dash
+        "\u2212": "-",  # minus sign
+    }
+)
+
+
+def normalize_text(value: str) -> str:
+    """Normalize punctuation, whitespace, and capitalization."""
+
+    value = value.translate(DASH_TRANSLATION)
+    value = re.sub(r"\s+", " ", value)
+
+    return value.casefold()
 
 BASE_DIR = Path(__file__).resolve().parent
 APP_PATH = BASE_DIR / "app.py"
@@ -35,21 +54,35 @@ PROJECT_VALUE_PATTERNS = (
 
 
 def extract_source_pages(output: str) -> dict[str, set[int]]:
-    """Extract the source-page list printed by app.py."""
+    """Extract PDF filenames and pages from inline and listed citations."""
 
-    pattern = re.compile(
-        r"^-\s+(?P<filename>.+?\.pdf),\s+"
-        r"electronic PDF page\s+(?P<page>\d+)\s*$",
-        re.IGNORECASE | re.MULTILINE,
+    citation_pattern = re.compile(
+        r"(?P<filename>[A-Za-z0-9_.-]+\.pdf),\s*"
+        r"electronic PDF page(?:s)?\s+"
+        r"(?P<pages>\d+(?:\s*[–-]\s*\d+)?)",
+        re.IGNORECASE,
     )
 
     sources: dict[str, set[int]] = {}
 
-    for match in pattern.finditer(output):
+    for match in citation_pattern.finditer(output):
         filename = match.group("filename")
-        page_number = int(match.group("page"))
+        page_expression = (
+            match.group("pages")
+            .replace("–", "-")
+            .replace(" ", "")
+        )
 
-        sources.setdefault(filename, set()).add(page_number)
+        if "-" in page_expression:
+            start_text, end_text = page_expression.split("-", maxsplit=1)
+            start_page = int(start_text)
+            end_page = int(end_text)
+
+            page_numbers = range(start_page, end_page + 1)
+        else:
+            page_numbers = [int(page_expression)]
+
+        sources.setdefault(filename, set()).update(page_numbers)
 
     return sources
 
@@ -85,7 +118,7 @@ def run_application(question: str) -> tuple[int, str]:
 
 def evaluate_case(case: dict[str, Any]) -> tuple[bool, list[str], str]:
     return_code, output = run_application(case["question"])
-    output_lower = output.casefold()
+    output_normalized = normalize_text(output)
     failures: list[str] = []
 
     if return_code != 0:
@@ -94,7 +127,7 @@ def evaluate_case(case: dict[str, Any]) -> tuple[bool, list[str], str]:
         )
 
     for required_text in case.get("must_include_all", []):
-        if required_text.casefold() not in output_lower:
+        if normalize_text(required_text) not in output_normalized:
             failures.append(
                 f"Missing required text: {required_text!r}"
             )
@@ -102,7 +135,8 @@ def evaluate_case(case: dict[str, Any]) -> tuple[bool, list[str], str]:
     any_terms = case.get("must_include_any", [])
 
     if any_terms and not any(
-        term.casefold() in output_lower for term in any_terms
+        normalize_text(term) in output_normalized
+    for term in any_terms
     ):
         failures.append(
             "None of the acceptable terms appeared: "
@@ -133,7 +167,8 @@ def evaluate_case(case: dict[str, Any]) -> tuple[bool, list[str], str]:
 
     if case.get("must_refuse", False):
         if not any(
-            phrase in output_lower for phrase in REFUSAL_PHRASES
+                normalize_text(phrase) in output_normalized
+                for phrase in REFUSAL_PHRASES
         ):
             failures.append(
                 "Expected an explicit unsupported-information refusal."
