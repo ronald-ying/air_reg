@@ -5,6 +5,7 @@ import subprocess
 import sys
 from pathlib import Path
 from typing import Any
+import unicodedata
 
 DASH_TRANSLATION = str.maketrans(
     {
@@ -19,12 +20,34 @@ DASH_TRANSLATION = str.maketrans(
 
 
 def normalize_text(value: str) -> str:
-    """Normalize punctuation, whitespace, and capitalization."""
+    """Normalize Unicode, Markdown, punctuation, and whitespace."""
 
-    value = value.translate(DASH_TRANSLATION)
-    value = re.sub(r"\s+", " ", value)
+    value = unicodedata.normalize("NFKC", value)
 
-    return value.casefold()
+    value = value.translate(
+        str.maketrans(
+            {
+                "\u2010": "-",
+                "\u2011": "-",
+                "\u2012": "-",
+                "\u2013": "-",
+                "\u2014": "-",
+                "\u2212": "-",
+                "\u200b": None,
+                "\u200c": None,
+                "\u200d": None,
+                "\ufeff": None,
+            }
+        )
+    )
+
+    # Remove Markdown emphasis.
+    value = value.replace("**", "").replace("__", "")
+
+    # Treat punctuation, including hyphens, as word separators.
+    value = re.sub(r"[^a-zA-Z0-9]+", " ", value)
+
+    return " ".join(value.casefold().split())
 
 BASE_DIR = Path(__file__).resolve().parent
 APP_PATH = BASE_DIR / "app.py"
